@@ -5,4 +5,6 @@ edition = "2024"
 
 [dependencies]
 image = "0.25.8"
+softbuffer = "0.4.6"
+softbuffer-rgb = "0.1.1"
 winit = "0.30.12"
