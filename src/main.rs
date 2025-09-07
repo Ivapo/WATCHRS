@@ -3,8 +3,25 @@ use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{Window, WindowId},
+    window::{Window, WindowId,Icon},
 };
+
+
+fn load_icon(path: &str) -> Option<Icon> {
+    match image::open(path) {
+        Ok(img) => {
+            let img = img.into_rgba8();
+            let (width, height) = img.dimensions();
+            Icon::from_rgba(img.into_raw(), width, height).ok()
+        }
+        Err(_) => {
+            eprintln!("⚠️  Could not load icon file at: '{path}'");
+            None
+        }
+    }
+}
+
+
 struct App {
     // main_window: Option<WindowId>,
     _window: Option<Window>,
@@ -13,11 +30,17 @@ struct App {
 impl ApplicationHandler<()> for App {
     // We’ll add window creation here in the next step.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // This is called when the application is resumed
-        // Create a window with a title
-        let attrs = Window::default_attributes().with_title("WATCHRS - Analog Clock");
+        // I first load the resources/icon.png to use it as the window icon
+        let icon = load_icon("resources//icon.png");
+
+        // Create a window with a title and icon
+        let attrs = Window::default_attributes()
+            .with_title("WATCHRS - Analog Clock")
+            .with_window_icon(icon)
+            // .with_fullscreen(Some(Fullscreen::Borderless(None)))
+            ;
+
         let window= event_loop.create_window(attrs).unwrap();
-        // self.main_window = Some(window.id());
         self._window = Some(window);
     }
 
@@ -27,7 +50,6 @@ impl ApplicationHandler<()> for App {
             _id: WindowId,
             event: WindowEvent,
         ) {
-        // he is the code given a window event
         // Handle the close button
         if matches!(event, WindowEvent::CloseRequested) {
             event_loop.exit();
