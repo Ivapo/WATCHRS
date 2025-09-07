@@ -1,3 +1,5 @@
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 use std::num::NonZeroU32;
 use std::rc::Rc;
 
@@ -17,19 +19,28 @@ use softbuffer_rgb::{RgbBuffer, softbuffer};
 const WIDTH: usize = 1200;
 const HEIGHT: usize = 900;
 
-fn load_icon(path: &str) -> Option<Icon> {
-    match image::open(path) {
-        Ok(img) => {
-            let img = img.into_rgba8();
-            let (width, height) = img.dimensions();
-            Icon::from_rgba(img.into_raw(), width, height).ok()
-        }
-        Err(_) => {
-            eprintln!("⚠️  Could not load icon file at: '{path}'");
-            None
-        }
-    }
+// Embed the PNG bytes
+const ICON_PNG: &[u8] = include_bytes!("..//resources//icon.png");
+
+fn load_icon_embedded() -> Option<Icon> {
+    let img = image::load_from_memory(ICON_PNG).ok()?.into_rgba8();
+    let (w, h) = img.dimensions();
+    Icon::from_rgba(img.into_raw(), w, h).ok()
 }
+
+// fn load_icon(path: &str) -> Option<Icon> {
+//     match image::open(path) {
+//         Ok(img) => {
+//             let img = img.into_rgba8();
+//             let (width, height) = img.dimensions();
+//             Icon::from_rgba(img.into_raw(), width, height).ok()
+//         }
+//         Err(_) => {
+//             eprintln!("⚠️  Could not load icon file at: '{path}'");
+//             None
+//         }
+//     }
+// }
 
 
 #[inline]
@@ -63,7 +74,7 @@ impl ApplicationHandler<()> for App {
         // Create a window with a title and icon
         let attrs = Window::default_attributes()
             .with_title("WATCHRS - Analog Clock")
-            .with_window_icon(load_icon("resources//icon.png"))
+            .with_window_icon(load_icon_embedded())
             .with_inner_size(PhysicalSize::new(WIDTH as u16, HEIGHT as u16))
             .with_resizable(false)
             ;
