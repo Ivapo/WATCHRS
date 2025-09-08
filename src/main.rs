@@ -7,64 +7,21 @@ use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{Window, WindowId,Icon},
+    window::{Window, WindowId},
     dpi::PhysicalSize,
-    raw_window_handle::{HasDisplayHandle, HasWindowHandle},
 };
 
+use softbuffer;
 
-
-use softbuffer_rgb::{RgbBuffer, softbuffer};
+mod icon;
+mod draw;
 
 const WIDTH: usize = 1200;
 const HEIGHT: usize = 900;
 
-// Embed the PNG bytes
-const ICON_PNG: &[u8] = include_bytes!("..//resources//icon.png");
-
-fn load_icon_embedded() -> Option<Icon> {
-    let img = image::load_from_memory(ICON_PNG).ok()?.into_rgba8();
-    let (w, h) = img.dimensions();
-    Icon::from_rgba(img.into_raw(), w, h).ok()
-}
-
-// fn load_icon(path: &str) -> Option<Icon> {
-//     match image::open(path) {
-//         Ok(img) => {
-//             let img = img.into_rgba8();
-//             let (width, height) = img.dimensions();
-//             Icon::from_rgba(img.into_raw(), width, height).ok()
-//         }
-//         Err(_) => {
-//             eprintln!("⚠️  Could not load icon file at: '{path}'");
-//             None
-//         }
-//     }
-// }
-
-
-#[inline]
-fn color_rgb(r: u8, g: u8, b: u8) -> [u8; 4] {
-    [b, g, r, 0]
-}
-
-
-// Accept the actual handle types (D, W), bounded by the traits RgbBuffer uses.
-fn clear<D, W>(buf: &mut RgbBuffer<WIDTH, HEIGHT, D, W>, color: [u8; 4])
-where
-    D: HasDisplayHandle,
-    W: HasWindowHandle,
-{
-    for row in buf.pixels.iter_mut() {
-        for px in row.iter_mut() {
-            *px = color;
-        }
-    }
-}
-
 struct App {
     window: Option<Rc<Window>>,
-    surface: Option<softbuffer::Surface<Rc<Window>, Rc<Window>>>, // <- note Rc<Window> here
+    surface: Option<softbuffer::Surface<Rc<Window>, Rc<Window>>>, // double Rc for both window and display
 }
 
 impl ApplicationHandler<()> for App {
@@ -74,23 +31,19 @@ impl ApplicationHandler<()> for App {
         // Create a window with a title and icon
         let attrs = Window::default_attributes()
             .with_title("WATCHRS - Analog Clock")
-            .with_window_icon(load_icon_embedded())
+            .with_window_icon(icon::load_icon_embedded())
             .with_inner_size(PhysicalSize::new(WIDTH as u16, HEIGHT as u16))
-            .with_resizable(false)
+            .with_resizable(true)
             ;
 
         // Own the window via Rc so we can hand owned handles to softbuffer
         let window = Rc::new(event_loop.create_window(attrs).unwrap());
-
-        // request the exact PHYSICAL size again (some WMs tweak initial sizes)
-        // window.request_inner_size(PhysicalSize::new(WIDTH as u16, HEIGHT as u16));
-
-        // Create context + surface using Rc clones (cheap pointer clones)
         let context = softbuffer::Context::new(window.clone()).unwrap();
         let mut surface = softbuffer::Surface::new(&context, window.clone()).unwrap();
 
+
         // always resize the surface to the actual inner_size (PHYSICAL)
-        let sz = window.inner_size(); // PhysicalSize<u32>
+        let sz = window.inner_size(); 
         surface
             .resize(
                 NonZeroU32::new(sz.width).unwrap(),
@@ -117,42 +70,28 @@ impl ApplicationHandler<()> for App {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
 
-            WindowEvent::RedrawRequested => {
-                if let (Some(window), Some(surface)) = (&self.window, &mut self.surface) {
-                    // Acquire the frame
-                    let raw = surface.buffer_mut().unwrap();
-                    let mut canva = RgbBuffer::<WIDTH, HEIGHT, _, _>::from_softbuffer(raw).unwrap();
-
-                    // --- draw something visible ---
-                    clear(&mut canva, color_rgb(255, 0, 0)); // background
-                    // fill_rect(&mut rgb, 20, 20, 200, 120, rgb(35, 90, 160)); // rectangle
-                    // draw_line(&mut rgb, 20, 180, 280, 60, rgb(240, 210, 40)); // diagonal line   
-                    // draw_circle_outline(&mut rgb, 400, 300, 120, rgb(200, 60, 60)); // circle
-
-                    window.pre_present_notify();
-                    canva.buffer.present().unwrap();
-                }
+            WindowEvent::Resized(new_size) => {
+                let surface = self.surface.as_mut().unwrap();
+                surface.resize(
+                    NonZeroU32::new(new_size.width).unwrap(),
+                    NonZeroU32::new(new_size.height).unwrap()).
+                    unwrap();
             }
-            
-            // WindowEvent::RedrawRequested => {
-            //     if let Some(surface) = &mut self.surface {
-            //         // Get a raw softbuffer buffer for this frame
-            //         let raw = surface.buffer_mut().unwrap();
 
-            //         // Wrap it in a typed, safe RgbBuffer (no unsafe)
-            //         let mut rgb = RgbBuffer::<WIDTH, HEIGHT, _, _>::from_softbuffer(raw).unwrap();
+            WindowEvent::RedrawRequested => {
+                let window = self.window.as_ref().unwrap();
+                let surface = self.surface.as_mut().unwrap();
 
-            //         // Fill the entire buffer with a solid color using the safe pixels API
-            //         for row in rgb.pixels.iter_mut() {
-            //             for px in row.iter_mut() {
-            //                 *px = [0, 30, 200, 40]; // 0RGB (the first byte must be 0)
-            //             }
-            //         }
+                // Acquire the frame
+                let mut canva = surface.buffer_mut().unwrap();
 
-            //         // Present the frame
-            //         rgb.buffer.present().unwrap();
-            //     }
-            // }
+                // use our clear() drawing function
+                draw::clear(&mut canva,draw::color_rgb(255, 0, 0));
+
+                window.pre_present_notify();
+                canva.present().unwrap();
+            }
+
             _ => {}
         }   
     }
