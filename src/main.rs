@@ -32,7 +32,7 @@ impl ApplicationHandler<()> for App {
         let attrs = Window::default_attributes()
             .with_title("WATCHRS - Analog Clock")
             .with_window_icon(icon::load_icon_embedded())
-            .with_inner_size(PhysicalSize::new(WIDTH as u16, HEIGHT as u16))
+            .with_inner_size(PhysicalSize::new(WIDTH as u32, HEIGHT as u32))
             .with_resizable(true)
             ;
 
@@ -74,22 +74,50 @@ impl ApplicationHandler<()> for App {
                 let surface = self.surface.as_mut().unwrap();
                 surface.resize(
                     NonZeroU32::new(new_size.width).unwrap(),
-                    NonZeroU32::new(new_size.height).unwrap()).
+                    NonZeroU32::new(new_size.height).unwrap()). 
                     unwrap();
             }
 
             WindowEvent::RedrawRequested => {
                 let window = self.window.as_ref().unwrap();
+                let window_size = window.inner_size();
+                let canvas_size = draw::Dimensions { width: window_size.width as usize, height: window_size.height as usize };
+                
                 let surface = self.surface.as_mut().unwrap();
 
                 // Acquire the frame
-                let mut canva = surface.buffer_mut().unwrap();
+                let mut canvas_buffer = surface.buffer_mut().unwrap();
+
+                let mut canvas = draw::Canvas::new(&mut canvas_buffer, canvas_size);
 
                 // use our clear() drawing function
-                draw::clear(&mut canva,draw::color_rgb(255, 0, 0));
+                canvas.clear(draw::color_rgb(255, 0, 0));
+
+                use draw::Point;
+
+                canvas.draw_line(
+                    Point::new(700, 50),
+                    Point::new(50, 700),
+                    30, // thickness in pixels
+                    draw::color_rgb(0, 200, 0),
+                );
+
+                canvas.draw_line(
+                    Point::new(100, 100),
+                    Point::new(700, 700),
+                    15,
+                    draw::color_rgb(0, 200, 255),
+                );
+
+                // Blue filled circle
+                canvas.draw_filled_circle(
+                    Point::new(300, 300),
+                    50,
+                    draw::color_rgb(0, 200, 255)
+                );
 
                 window.pre_present_notify();
-                canva.present().unwrap();
+                canvas_buffer.present().unwrap();
             }
 
             _ => {}

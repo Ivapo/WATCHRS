@@ -20,7 +20,95 @@ pub fn color_rgb(r: u8, g: u8, b: u8) -> u32 {
     red_bits | green_bits | blue_bits
 }
 
-// clear entire buffer with a single color
-pub fn clear(buf: &mut [u32], color: u32) {
-    buf.fill(color);
+#[derive(Copy, Clone, Debug)]
+pub struct Point {
+    pub x: isize,
+    pub y: isize,
+}
+
+impl Point {
+    pub fn new(x: isize, y: isize) -> Self {
+        Self { x, y }
+    }
+}
+
+pub struct Dimensions {
+    pub width: usize,
+    pub height: usize,
+}
+
+pub struct Canvas<'a> {
+    pub buf: &'a mut [u32],
+    pub size: Dimensions,
+}
+
+impl<'a> Canvas<'a> {
+    pub fn new(buf: &'a mut [u32], size: Dimensions) -> Self {
+        // (Optional) sanity check in debug builds:
+        debug_assert_eq!(buf.len(), (size.width as usize) * (size.height as usize));
+        Self { buf, size }
+    }
+
+    #[inline] 
+    pub fn width(&self) -> usize  { self.size.width }
+    #[inline] 
+    pub fn height(&self) -> usize { self.size.height}
+
+    /// Clear the entire canvas with a color. can also be used to set a background.
+    pub fn clear(&mut self, color: u32) {
+        self.buf.fill(color);
+    }
+
+    /// Plot one pixel at (x,y), ignoring if out of bounds.
+    pub fn put_pixel(&mut self, x: isize, y: isize, color: u32) {
+        
+        if x < 0 || y < 0 {
+            return;
+        }
+        
+        let (x, y) = (x as usize, y as usize);
+
+        if x >= self.width() || y >= self.height() {
+            return;
+        }
+        self.buf[y * self.width() as usize + x] = color;
+    }
+
+    pub fn draw_filled_circle(&mut self, center: Point, radius: usize, color: u32) {
+        let r = radius as isize;
+        let r2 = (radius * radius) as isize;
+
+        for dy in -r..=r {
+            for dx in -r..=r {
+                if dx*dx + dy*dy <= r2 {
+                    self.put_pixel(center.x + dx, center.y + dy, color);
+                }
+            }
+        }
+    }
+
+    pub fn draw_line(&mut self, a: Point, b: Point, thickness: usize, color: u32) {
+        let mut x0 = a.x;
+        let mut y0 = a.y;
+        let x1 = b.x;
+        let y1 = b.y;
+
+        let dx = (x1 - x0).abs();
+        let sx = if x0 < x1 { 1 } else { -1 };
+        let dy = -(y1 - y0).abs();
+        let sy = if y0 < y1 { 1 } else { -1 };
+        let mut err = dx + dy;
+
+        let radius = (thickness as f32 * 0.5).ceil() as usize;
+
+        loop {
+            self.draw_filled_circle(Point::new(x0, y0), radius, color);
+
+            if x0 == x1 && y0 == y1 { break; }
+
+            let e2 = 2 * err;
+            if e2 >= dy { err += dy; x0 += sx; }
+            if e2 <= dx { err += dx; y0 += sy; }
+        }
+    }
 }
