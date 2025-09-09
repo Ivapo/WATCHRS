@@ -5,7 +5,7 @@
 ///  31            24 23            16 15             8 7              0
 /// [    unused = 0 ][      RED      ][     GREEN      ][      BLUE      ]
 #[inline]
-pub fn color_rgb(r: u8, g: u8, b: u8) -> u32 {
+pub const fn color_rgb(r: u8, g: u8, b: u8) -> u32 {
     // 1) Widen to u32 so shifts don't overflow 8-bit values.
     let r = r as u32;
     let g = g as u32;
@@ -32,6 +32,7 @@ impl Point {
     }
 }
 
+
 pub struct Dimensions {
     pub width: usize,
     pub height: usize,
@@ -49,10 +50,36 @@ impl<'a> Canvas<'a> {
         Self { buf, size }
     }
 
-    #[inline] 
-    pub fn width(&self) -> usize  { self.size.width }
-    #[inline] 
-    pub fn height(&self) -> usize { self.size.height}
+    pub fn width(&self) -> usize  { 
+        self.size.width 
+    }
+    pub fn height(&self) -> usize { 
+        self.size.height
+    }
+    pub fn max_x(&self) -> isize { 
+        self.width() as isize - 1 
+    }
+    pub fn max_y(&self) -> isize { 
+        self.height() as isize - 1 
+    }
+
+    pub fn center(&self) -> Point {
+        Point::new((self.width() as isize) / 2, (self.height() as isize) / 2)
+    }
+
+    pub fn min_dim(&self) -> usize {
+        self.width().min(self.height())
+    }
+    pub fn _aspect_ratio(&self) -> f32 {
+        self.width() as f32 / self.height() as f32
+    }
+
+    /// Convert normalized coords (0..1) into pixel coordinates.
+    pub fn _from_norm(&self, x: f32, y: f32) -> Point {
+        let px = (x.clamp(0.0, 1.0) * (self.width().saturating_sub(1) as f32)).round() as isize;
+        let py = (y.clamp(0.0, 1.0) * (self.height().saturating_sub(1) as f32)).round() as isize;
+        Point::new(px, py)
+    }
 
     /// Clear the entire canvas with a color. can also be used to set a background.
     pub fn clear(&mut self, color: u32) {
@@ -61,33 +88,30 @@ impl<'a> Canvas<'a> {
 
     /// Plot one pixel at (x,y), ignoring if out of bounds.
     pub fn put_pixel(&mut self, x: isize, y: isize, color: u32) {
-        
         if x < 0 || y < 0 {
             return;
         }
-        
         let (x, y) = (x as usize, y as usize);
-
         if x >= self.width() || y >= self.height() {
             return;
         }
-        self.buf[y * self.width() as usize + x] = color;
+        self.buf[y * self.width() + x] = color;
     }
 
-    pub fn draw_filled_circle(&mut self, center: Point, radius: usize, color: u32) {
-        let r = radius as isize;
-        let r2 = (radius * radius) as isize;
+    pub fn draw_filled_circle(&mut self, center: Point, radius: isize, color: u32) {
+        // let r = radius as isize;
+        // let r2 = (radius * radius) as isize;
 
-        for dy in -r..=r {
-            for dx in -r..=r {
-                if dx*dx + dy*dy <= r2 {
+        for dy in -radius..=radius {
+            for dx in -radius..=radius {
+                if dx*dx + dy*dy <= (radius * radius) {
                     self.put_pixel(center.x + dx, center.y + dy, color);
                 }
             }
         }
     }
 
-    pub fn draw_line(&mut self, a: Point, b: Point, thickness: usize, color: u32) {
+    pub fn draw_line(&mut self, a: Point, b: Point, thickness: isize, color: u32) {
         let mut x0 = a.x;
         let mut y0 = a.y;
         let x1 = b.x;
@@ -99,7 +123,7 @@ impl<'a> Canvas<'a> {
         let sy = if y0 < y1 { 1 } else { -1 };
         let mut err = dx + dy;
 
-        let radius = (thickness as f32 * 0.5).ceil() as usize;
+        let radius = (thickness as f32 * 0.5).ceil() as isize;
 
         loop {
             self.draw_filled_circle(Point::new(x0, y0), radius, color);
@@ -110,5 +134,21 @@ impl<'a> Canvas<'a> {
             if e2 >= dy { err += dy; x0 += sx; }
             if e2 <= dx { err += dx; y0 += sy; }
         }
+    }
+
+    pub fn draw_frame(&mut self, padding: isize, thickness: isize, color: u32) {
+        let w = self.max_x();
+        let h = self.max_y();
+        let p = padding;
+
+        let top_left    = Point::new(p,     p); 
+        let top_right   = Point::new(w - p, p);
+        let bottom_left = Point::new(p,     h - p);
+        let bottom_right= Point::new(w-p,   h - p);
+
+        self.draw_line(top_left,top_right, thickness, color); 
+        self.draw_line(top_left,bottom_left, thickness, color); 
+        self.draw_line(bottom_left,bottom_right, thickness, color); 
+        self.draw_line(bottom_right,top_right, thickness, color); 
     }
 }
