@@ -46,7 +46,7 @@ pub struct Canvas<'a> {
 impl<'a> Canvas<'a> {
     pub fn new(buf: &'a mut [u32], size: Dimensions) -> Self {
         // (Optional) sanity check in debug builds:
-        debug_assert_eq!(buf.len(), (size.width as usize) * (size.height as usize));
+        debug_assert_eq!(buf.len(), (size.width) * (size.height));
         Self { buf, size }
     }
 
@@ -56,11 +56,11 @@ impl<'a> Canvas<'a> {
     pub fn height(&self) -> usize { 
         self.size.height
     }
-    pub fn max_x(&self) -> isize { 
-        self.width() as isize - 1 
+    pub fn max_x(&self) -> usize { 
+        self.width() - 1 
     }
-    pub fn max_y(&self) -> isize { 
-        self.height() as isize - 1 
+    pub fn max_y(&self) -> usize { 
+        self.height() - 1 
     }
 
     pub fn center(&self) -> Point {
@@ -70,16 +70,16 @@ impl<'a> Canvas<'a> {
     pub fn min_dim(&self) -> usize {
         self.width().min(self.height())
     }
-    pub fn _aspect_ratio(&self) -> f32 {
-        self.width() as f32 / self.height() as f32
-    }
+    // pub fn _aspect_ratio(&self) -> f32 {
+    //     self.width() as f32 / self.height() as f32
+    // }
 
     /// Convert normalized coords (0..1) into pixel coordinates.
-    pub fn _from_norm(&self, x: f32, y: f32) -> Point {
-        let px = (x.clamp(0.0, 1.0) * (self.width().saturating_sub(1) as f32)).round() as isize;
-        let py = (y.clamp(0.0, 1.0) * (self.height().saturating_sub(1) as f32)).round() as isize;
-        Point::new(px, py)
-    }
+    // pub fn _from_norm(&self, x: f32, y: f32) -> Point {
+    //     let px = (x.clamp(0.0, 1.0) * (self.width().saturating_sub(1) as f32)).round() as isize;
+    //     let py = (y.clamp(0.0, 1.0) * (self.height().saturating_sub(1) as f32)).round() as isize;
+    //     Point::new(px, py)
+    // }
 
     /// Clear the entire canvas with a color. can also be used to set a background.
     pub fn clear(&mut self, color: u32) {
@@ -92,16 +92,13 @@ impl<'a> Canvas<'a> {
             return;
         }
         let (x, y) = (x as usize, y as usize);
-        if x >= self.width() || y >= self.height() {
+        if x  >= self.width() || y >= self.height() {
             return;
         }
         self.buf[y * self.width() + x] = color;
     }
 
     pub fn draw_filled_circle(&mut self, center: Point, radius: isize, color: u32) {
-        // let r = radius as isize;
-        // let r2 = (radius * radius) as isize;
-
         for dy in -radius..=radius {
             for dx in -radius..=radius {
                 if dx*dx + dy*dy <= (radius * radius) {
@@ -123,7 +120,9 @@ impl<'a> Canvas<'a> {
         let sy = if y0 < y1 { 1 } else { -1 };
         let mut err = dx + dy;
 
-        let radius = (thickness as f32 * 0.5).ceil() as isize;
+        // let radius = (thickness as f32 * 0.5).ceil() as isize;
+        let radius = thickness/2;
+
 
         loop {
             self.draw_filled_circle(Point::new(x0, y0), radius, color);
@@ -137,8 +136,8 @@ impl<'a> Canvas<'a> {
     }
 
     pub fn draw_frame(&mut self, padding: isize, thickness: isize, color: u32) {
-        let w = self.max_x();
-        let h = self.max_y();
+        let w = self.max_x() as isize;
+        let h = self.max_y() as isize;
         let p = padding;
 
         let top_left    = Point::new(p,     p); 

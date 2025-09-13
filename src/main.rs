@@ -18,6 +18,7 @@ use softbuffer;
 mod icon;
 mod draw;
 
+const APP_NAME: &str = "WATCHRS - Analog Clock";
 const WIDTH: usize = 1200;
 const HEIGHT: usize = 900;
 const COLOR_BACKGROUND: u32 = draw::color_rgb(75, 95, 100);
@@ -26,47 +27,48 @@ const COLOR_1: u32 = draw::color_rgb(0, 200, 255);
 struct App {
     window: Option<Rc<Window>>,
     surface: Option<softbuffer::Surface<Rc<Window>, Rc<Window>>>, // double Rc for both window and display
-    start: Instant,
+    start: Option<Instant>,
 }
 
 impl ApplicationHandler<()> for App {
     // We’ll add window creation here in the next step.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
 
-        // Create a window with a title and icon
+        // Create a window
         let attrs = Window::default_attributes()
-            .with_title("WATCHRS - Analog Clock")
+            .with_title(APP_NAME)
             .with_window_icon(icon::load_icon_embedded())
             .with_inner_size(PhysicalSize::new(WIDTH as u32, HEIGHT as u32))
             .with_resizable(true)
             ;
 
-        // Own the window via Rc so we can hand owned handles to softbuffer
+        // With an Rc we 'own' the window and hand owned handles to softbuffer
         let window = Rc::new(event_loop.create_window(attrs).unwrap());
         let context = softbuffer::Context::new(window.clone()).unwrap();
         let mut surface = softbuffer::Surface::new(&context, window.clone()).unwrap();
 
 
-        // always resize the surface to the actual inner_size (PHYSICAL)
-        let sz = window.inner_size(); 
+        // resize the surface to the actual inner_size (PHYSICAL)
+        let window_size = window.inner_size(); 
         surface
             .resize(
-                NonZeroU32::new(sz.width).unwrap(),
-                NonZeroU32::new(sz.height).unwrap(),
+                NonZeroU32::new(window_size.width).unwrap(),
+                NonZeroU32::new(window_size.height).unwrap(),
             )
             .unwrap();
 
+        self.start = Some(Instant::now());
         self.window = Some(window);
         self.surface = Some(surface);
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let now = Instant::now();
-        let elapsed = now.duration_since(self.start);
+        let elapsed = now.duration_since(self.start.unwrap());
         let secs = elapsed.as_secs();
 
         // Schedule the wake-up for the *next* whole second
-        let next_tick = self.start + Duration::from_secs(secs + 1);
+        let next_tick = self.start.unwrap() + Duration::from_secs(secs + 1);
         event_loop.set_control_flow(ControlFlow::WaitUntil(next_tick));
 
         // Always redraw on wake-up
@@ -139,22 +141,22 @@ impl ApplicationHandler<()> for App {
 
                 // Clock hand geometry
                 let center = canvas.center();
-                let radius = canvas.min_dim() / 2usize - (frame_padding*2) as usize - 2;
+                let seconds_hand_length = (canvas.min_dim() / 2) - (frame_padding*2) as usize - 2;
 
                 // Whole seconds since launch (0..59), always starts at 0 on first frame
-                let secs = (self.start.elapsed().as_secs() % 60) as f32;
+                let secs = (self.start.unwrap().elapsed().as_secs() % 60) as f32;
 
                 // Angle: 0..2π over 60s, with 0 pointing UP (12 o'clock)
                 let angle = -std::f32::consts::FRAC_PI_2 + secs * (std::f32::consts::TAU / 60.0);
 
                 // Tip of the hand
-                let tip = Point::new(
-                    center.x + (angle.cos() * radius as f32).round() as isize,
-                    center.y + (angle.sin() * radius as f32).round() as isize,
+                let seconds_hand_tip = Point::new(
+                    center.x + (angle.cos() * seconds_hand_length as f32).round() as isize,
+                    center.y + (angle.sin() * seconds_hand_length as f32).round() as isize,
                 );
 
                 // Draw the hand
-                canvas.draw_line(center, tip,thick, COLOR_1);
+                canvas.draw_line(center, seconds_hand_tip,thick, COLOR_1);
 
                 window.pre_present_notify();
                 canvas_buffer.present().unwrap();
@@ -173,7 +175,7 @@ fn main() {
     let mut app = App {
         window: None,
         surface: None,
-        start: Instant::now(),
+        start: None,
     };
     event_loop.run_app(&mut app).unwrap();
 }
