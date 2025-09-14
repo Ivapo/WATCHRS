@@ -92,23 +92,24 @@ impl<'a> Canvas<'a> {
             return;
         }
         let (x, y) = (x as usize, y as usize);
-        if x  >= self.width() || y >= self.height() {
+        if x  >= self.width() || y >= self.height()  {
             return;
         }
         self.buf[y * self.width() + x] = color;
     }
 
-    pub fn draw_filled_circle(&mut self, center: Point, radius: isize, color: u32) {
-        for dy in -radius..=radius {
-            for dx in -radius..=radius {
-                if dx*dx + dy*dy <= (radius * radius) {
+    pub fn draw_filled_circle(&mut self, center: Point, radius: usize, color: u32) {
+        let r=radius as isize;
+        for dy in -r..=r {
+            for dx in -r..=r {
+                if dx*dx + dy*dy <= (r * r) {
                     self.put_pixel(center.x + dx, center.y + dy, color);
                 }
             }
         }
     }
 
-    pub fn draw_line(&mut self, a: Point, b: Point, thickness: isize, color: u32) {
+    pub fn draw_line(&mut self, a: Point, b: Point, thickness: usize, color: u32) {
         let mut x0 = a.x;
         let mut y0 = a.y;
         let x1 = b.x;
@@ -135,10 +136,10 @@ impl<'a> Canvas<'a> {
         }
     }
 
-    pub fn draw_frame(&mut self, padding: isize, thickness: isize, color: u32) {
+    pub fn draw_frame(&mut self, padding: usize, thickness: usize, color: u32) {
         let w = self.max_x() as isize;
         let h = self.max_y() as isize;
-        let p = padding;
+        let p = padding as isize;
 
         let top_left    = Point::new(p,     p); 
         let top_right   = Point::new(w - p, p);
