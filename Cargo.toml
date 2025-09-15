@@ -3,7 +3,13 @@ name = "WATCHRS"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+# default =["metronome"]
+metronome = []
+watch = []
+
 [dependencies]
+cfg-if = "1.0.3"
 image = "0.25.8"
 softbuffer = "0.4.6"
 softbuffer-rgb = "0.1.1"
